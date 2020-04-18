@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh6U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+
+  <script type="text/javascript">
+    var search_back1 = "고기집"
+    var search_back2 = "고깃집"
+
+
+    function getregion(){
+      var search_front = document.getElementById("fname").value;
+      search = search_front+'+'+search_back1
+      
+      $.ajax({
+                type: "POST",
+                url: "/search",
+                data: { 'search': search, 'search_key': search_front},
+                success: function (response) {
+                    if (response['result'] == 'success') {
+                        alert(response['msg']);
+                        window.location.reload();
+                    }
+                }
+            })
+
+    }
+  </script>
+</head>
+<body>
+
+  <img src="https://img1.daumcdn.net/thumb/R720x0/?fname=https%3A%2F%2Ft1.daumcdn.net%2Fliveboard%2Fdailylife%2F39693914ee0842409f6977cd41339753.jpg" alt="My Image">
+
+<div>
+  <form action="/action_page.php">
+    <label for="fname">지역을 입력하시오</label>
+    <input type="text" id="fname" name="firstname" placeholder="type your gogiposition">
+
+    <button class="button" onclick="getregion()">Button</button>
+  </form>
+</div>
+<div>
+  <li class>
+    <a href="http://electronic-moongchi.tistory.com" title="강남역" target="_parent">서울 - 강남역</a> 
+  </li>
+  
+</div>
+
+</body>
+</html>
