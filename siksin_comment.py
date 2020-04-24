@@ -156,7 +156,7 @@ for k in range(3,18):
                 except:
                     break
 
-            shop_comment = get_comment_data() #코멘트 크롤링링
+            shop_comment = get_comment_data() #코멘트 크롤링
             shop_list = {shop_name:shop_comment, 'region':region_data[0]}
             db.ShopComments.insert_one(shop_list)
             print(shop_name+'완료')

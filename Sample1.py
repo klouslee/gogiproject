@@ -1,94 +1,176 @@
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-import time
-from multiprocessing import Pool
-
-from bs4 import BeautifulSoup
 from pymongo import MongoClient
-from flask import Flask, render_template, jsonify, request
-import google_module
+client = MongoClient('localhost', 27017)
+db =client.dbsparta
+def get_region_store(region):
+    gogilist = []
+    goginame = []
+    style= list(db.ShopInfo.find({},{'_id':0}))
+    for k in style:
+        t=list(k.values())
+        p=list(k.keys())
+        if t[0][0]['지역'] == region:
+            gogilist.append(t)
+            goginame.append(p)
 
-startime = time.time()
-def get_gogi_data(t):
+    return gogilist, goginame
 
-    driver = webdriver.Chrome('D:/finalproject/chromedriver.exe')
+def get_store_pic(name,region):
+    store = list(db.PicStar.find({},{'_id':0}))
+    i=0
 
-    url='https://www.google.com/maps/search/수지구+고기집'
+    for k in store:
+        if(k['이미지'][1]['가게이름']==name and k['이미지'][0]['지역']==region):
+            return k['이미지'][2]['이미지'],k['이미지'][3]['별점']
+        i += 1
+def get_comment(name,region):
+    comments = list(db.ShopComments.find({},{'_id':0}))
+    high_comment=[]
+    low_comment = []
+    lowstar=6
+    highstar=0
+    for k in comments:
+        t = list(k.values())
+        p = list(k.keys())
+        if p[0]==name and t[1]==region:
+            comment_list = t[0]
+            if len(comment_list)<2:
+                return "없음","없음"
+            for o in comment_list:
+                if float(o['별점'])>highstar:
+                    highstar = float(o['별점'])
+                if float(o['별점'])<lowstar:
+                    lowstar = float(o['별점'])
+            for o in comment_list:
+                if (float(o['별점']) == highstar):
+                    if len(high_comment)!=3:
+                        high_comment.append(o['이름'])
+                        high_comment.append(o['별점'])
+                        high_comment.append(o['코멘트'])
 
-    app = Flask(__name__)
 
-    client = MongoClient('localhost', 27017)
-    db = client.dbsparta
-    driver.get(url)
-    WebDriverWait(driver, 3).until(
-            EC.presence_of_element_located(
-                (By.XPATH, "/html/body/jsl/div[3]/div[9]/div[8]/div/div[1]/div/div/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/h3/span")
-            )
-        )
+                if (float(o['별점']) == lowstar):
+                    if len(low_comment)!=3:
+                        low_comment.append(o['이름'])
+                        low_comment.append(o['별점'])
+                        low_comment.append(o['코멘트'])
+            return(high_comment,low_comment)
 
 
 
-    go_back = "/html/body/jsl/div[3]/div[9]/div[8]/div/div[1]/div/div/button/span"
 
-    for k in range(t, 39, 8):
-        find_front = "/html/body/jsl/div[3]/div[9]/div[8]/div/div[1]/div/div/div[4]/div[1]/div["
+totaldata = ''
+storelist, storename = get_region_store('강남역')
+i=1
+for k in range(0,len(storelist)):
+    store_name = ''.join(storename[k])
+    store_region = storelist[k][0][0]['지역']
+    store_img, store_star = get_store_pic(store_name,store_region)
+    store_intro = storelist[k][0][2]['매장소개']
+    store_type = storelist[k][0][1]['업종'][7:]
+    store_phone = storelist[k][0][3]['전화번호']
+    store_address = storelist[k][0][4]['주소']
+    store_worktime = storelist[k][0][5]['영업시간']
+    store_menu = storelist[k][0][6]['대표메뉴']
 
-        find_full = find_front + str(k) + "]"
+    if store_star!="평가중":
+        store_meatpoint = str(int(float(store_star) * 20))
+    else:
+        store_meatpoint = "평가중"
+    high_comment, low_comment = get_comment(store_name,store_region)
+    data1 = """<div class="Sepecific" id="specific"""+str(i)+"""\" style="width: 1000px; height: auto; margin-top:0px; display: none;">
+        </div>"""
+    data2 = """<hr style="border: solid 1px rgb(138, 138, 138); "></hr>
+        <div class="address">
+          <h4>주소</h4>
+          <h4 style="font-weight:unset">"""+store_address+"""</h4></div>"""
 
-        driver.find_element_by_xpath(find_full).click()
-        WebDriverWait(driver, 3).until(
-        EC.presence_of_element_located(
-            (By.XPATH, "/html/body/jsl/div[3]/div[9]/div[8]/div/div[1]/div/div/div[2]/div[1]/div[1]/h1")
-            )
-        )
+    data3 = """<div class="workTime">"""
+    if len(store_worktime)>0:
+        data3+="<h4>영업시간</h4>"
+        for time in range(0,len(store_worktime)):
+            a = store_worktime[time].keys()
+            b = store_worktime[time].values()
+            data3=data3+"<h4 style=\"font-weight:unset\">"+list(a)[0]+" : "+list(b)[0]+"</h4>"
+    data3+="</div>"
 
-        gogi_name = driver.find_element_by_xpath("/html/body/jsl/div[3]/div[9]/div[8]/div/div[1]/div/div/div[2]/div[1]/div[1]/h1").text
-        gogi_position = driver.find_element_by_xpath("/html/body/jsl/div[3]/div[9]/div[8]/div/div[1]/div/div/div[10]/div/div[1]/span[3]/span[3]").text
+    data4= """<div class="menu" style="width:1000px; height:auto; margin:0 0 0 0;">"""
+    if len(store_menu)>0:
+        data4+="""<h4 style="width:500px; height:auto; margin:0 0 0 5px;">대표메뉴</h4>
+          <div style="width:250px; margin-top:0px;">"""
+        for menu in range(0,len(store_menu)):
+            a = store_menu[menu].keys()
+            data4= data4+"""<h4 style="font-weight:unset">"""+list(a)[0]+""" : </h4>"""
+        data4+="""</div>
+          <div style="width:720px; margin-top:0px;">"""
+        for menu in range(0,len(store_menu)):
+            b = store_menu[menu].values()
+            data4=data4+"""<h4 style="font-weight:unset">"""+list(b)[0]+"""</h4>"""
+        data4+="""</div>
+        </div>"""
 
-        gogi_phone_div=None
-        gogi_phones=None
-        gogi_phone=None
-        try:
-            gogi_phone_div = driver.find_element_by_class_name("section-info-speak-numeral")
-            gogi_phones = gogi_phone_div.find_elements_by_class_name("widget-pane-link")
-            gogi_phone = google_module.get_gogi_phone(gogi_phones)
+    if int(store_meatpoint)<50:
+        meat_pic="https://previews.123rf.com/images/makc76/makc761701/makc76170100058/69648578-piece-of-meat-vector-icon-beef-steak-icon-vector-illustration.jpg"
+    else:
+        meat_pic="https://cdn2.iconfinder.com/data/icons/steak-cartoon-2/512/g27867-512.png"
 
-        except:
-            gogi_phone = '정보없음'
+    data5="""<div class="comment" style="margin : 0 0 0 0">
+          <h4 style="width:500px; height:auto; margin:0 0 0 5px;">MEAT 지수</h4>
+          <div style="width:400; height:110px">
+            <img
+              src=\""""+meat_pic+"""\"
+              alt="My Image" width=100px style="float:left">
+            <h1 style="float:left; font-size:80px; margin: 0 600px 0 0 ">&nbsp;"""+store_meatpoint+"""%</h1>
+            <hr width=650px; style="float: left; border: solid 1px rgb(138, 138, 138); margin: 10px 0 0 0;">
+            </hr>"""
+    if high_comment == "없음":
+        data5+="</div>"
+    else:
+        data5= data5+"""<div class="good" style="height: auto; margin: 0 0 0 0;float: left;">
+            <div style="width: 300px; height: 60px;">
+              <div style=" max-width:60px; overflow: hidden; float: left; margin: 0 0 0 0;">
+                <img
+                  src="https://previews.123rf.com/images/09910190/099101901711/09910190171100062/90461006-good-and-bad-signs-set-social-media-gesture-like-finger-thumb-up-and-down-vector-illustration-flat-s.jpg"
+                  alt="C:/Users/klous/OneDrive/Desktop/sign/bad.png" width=100px
+                  style="max-width:initial; float: left; margin: 0px 10px 0px 10px; overflow: hidden; ">
+              </div>
+              <div style=" margin:15px 0 0 0; width: 180px; float: left ">
+                <h1 style=" margin:0 0 0 10px;">좋아요!</h1>
+              </div>
+            </div>
+            <hr width=300px; style="float: left; border: solid 1px rgb(138, 138, 138); margin: 10px 0 0 0;">
+            <div class="goodComment1" style="width:300px">
+              <h3 style="margin: 20px 10px 10px 10px; float:left; width:230px">"""+high_comment[0]+"""</h1> 
+              <h2 style="margin: 14px 10px 0 0px; float:right; height:45px;">"""+high_comment[1]+"""</h2>
+              <div>
+                <h6>"""+high_comment[2]+"""</h5>
+              </div>
+            </div>
+          </div>
 
-        gogi_work_div = None
-        gogi_work = None
-        gogi_work1 = None
-        gogi_work2 = None
-        try:
-            gogi_work_div = driver.find_element_by_class_name("section-open-hours")
-            gogi_work1 = gogi_work_div.find_elements_by_class_name("section-info-red")
-            gogi_work2 = gogi_work_div.find_elements_by_class_name("section-info-text")
+          <div style="border-left:2px solid rgb(138, 138, 138); width:5px; height: 300px;float:left;"></div>
 
-            gogi_work1, gogi_work2 = google_module.get_gogi_work(gogi_work1, gogi_work2)
-        except:
-            gogi_work1 = '정보없음'
-            gogi_work2 = ''
-
-        dataset = {'store_name': str(gogi_name),
-           'store_position': str(gogi_position),
-           'store_phone': str(gogi_phone),
-           'store_work' : str(gogi_work1)+str(gogi_work2)}
-        db.stores.insert_one(dataset)
-
-        driver.find_element_by_xpath(go_back).click()
-        WebDriverWait(driver, 3).until(
-            EC.presence_of_element_located(
-                (By.XPATH, find_full)
-            )
-        )
-
-if __name__ == '__main__' :
-    num_list = [1, 3, 5, 7]
-
-    pool = Pool(processes=4)
-    pool.map(get_gogi_data, num_list)
-
-    print(time.time()-startime)
+          <div class="bad" style="height: auto; margin: 0 0 0 0;float: left;">
+            <div style="width: 300px; height: 60px;">
+              <div style=" max-width:60px; overflow: hidden; float: left; margin: 0 0 0 0;">
+                <img
+                  src="https://previews.123rf.com/images/09910190/099101901711/09910190171100062/90461006-good-and-bad-signs-set-social-media-gesture-like-finger-thumb-up-and-down-vector-illustration-flat-s.jpg"
+                  alt="C:/Users/klous/OneDrive/Desktop/sign/bad.png" width=100px
+                  style="max-width:initial; float: left;  margin: 0px 10px 0px -80%; overflow: hidden; ">
+              </div>
+              <div style=" margin:15px 0 0 0; width: 180px; float: left ">
+                <h1 style=" margin:0 0 0 0px;">모르겠어요!</h1>
+              </div>
+            </div>
+            <hr width=300px; style="float: left; border: solid 1px rgb(138, 138, 138); margin: 10px 0 0 0;">
+            <div class="goodComment1" style="width:300px">
+              <h3 style="margin: 20px 10px 10px 10px; float:left; width:230px">"""+low_comment[0]+"""</h1> 
+              <h2 style="margin: 14px 10px 0 0px; float:right; height:45px;">"""+low_comment[1]+"""</h2>
+              <div>
+                <h6>"""+low_comment[2]+"""</h5>
+              </div>
+            </div>
+          </div>
+        </div>"""
+    i+=1
+    if i>2:
+        break;
